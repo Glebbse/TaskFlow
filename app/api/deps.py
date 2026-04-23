@@ -9,8 +9,7 @@ from collections.abc import AsyncGenerator
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.user import User
-from app.repos.db_users import get_db_user_by_id
-from app.services.user_service import UserNotFoundError
+from app.services.user_service import UserNotFoundError, get_user_by_id_service
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 
@@ -39,7 +38,7 @@ async def get_current_user(token: str = Depends(oauth2_scheme),
         raise credentials_error
 
     try:
-        user = await get_db_user_by_id(session, user_id)
+        user = await get_user_by_id_service(session, user_id)
 
     except UserNotFoundError:
         raise credentials_error

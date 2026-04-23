@@ -15,12 +15,12 @@ from app.services.user_service import UsernameAlreadyExistError, UserNotFoundErr
 
 router = APIRouter(prefix="/users", tags=["users"])
 
-@router.post("/{user_id}/tasks", response_model=TaskRead)
-async def create_task_for_user_handler(user_id: int, payload: TaskCreate, session: AsyncSession = Depends(get_session)):
-    try:
-        return await create_task_for_user_service(session, user_id, payload)
-    except UserNotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+# @router.post("/{user_id}/tasks", response_model=TaskRead)
+# async def create_task_for_user_handler(payload: TaskCreate, current_user: User = Depends(get_current_user), session: AsyncSession = Depends(get_session)):
+#     try:
+#         return await create_task_for_user_service(session, current_user.id, payload)
+#     except UserNotFoundError as e:
+#         raise HTTPException(status_code=404, detail=str(e))
 
 # @router.post("", status_code=201, response_model=UserRead)
 # async def create_user_handler(payload: UserCreate, session: AsyncSession = Depends(get_session)):
@@ -31,6 +31,7 @@ async def create_task_for_user_handler(user_id: int, payload: TaskCreate, sessio
 
 @router.get("/{user_id}/tasks", response_model=TaskListResponse)
 async def get_user_tasks_handler(user_id: int,
+                                 current_user: User = Depends(get_current_user),
                                  limit: int = Query(default=10, ge=1, le=100),
                                  offset: int = Query(default=0, ge=0),
                                  search: str | None = Query(default=None, min_length=1, max_length=255),
@@ -39,6 +40,8 @@ async def get_user_tasks_handler(user_id: int,
                                  order: Literal["asc", "desc"] = Query(default="desc"),
                                  session: AsyncSession = Depends(get_session)):
     try:
+        if current_user.id != user_id:
+            raise HTTPException(status_code=403, detail= "Forbidden")
         return await task_service.get_tasks_by_user_service(session, user_id, limit, offset, search, is_done, sort_by, order)
     except UserNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
