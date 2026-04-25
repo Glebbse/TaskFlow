@@ -17,7 +17,7 @@ class Task(Base):
     is_done: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
-        server_default=func.timezone("UTC", func.now()))
+        server_default=func.now())
     last_updated: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),

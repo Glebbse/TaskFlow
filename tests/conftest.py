@@ -1,4 +1,3 @@
-import os
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
@@ -10,7 +9,7 @@ from app.main import app
 
 TEST_DB_URL = "sqlite+aiosqlite:///./test.db"
 
-test_engine = create_async_engine(TEST_DB_URL, echo=True)
+test_engine = create_async_engine(TEST_DB_URL, echo=False)
 TestSessionLocal = async_sessionmaker(bind=test_engine, expire_on_commit=False)
 
 async def override_get_session() -> AsyncSession:
@@ -26,8 +25,6 @@ async def prepare_db():
 
     async with test_engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
-    # if os.path.exists("test.db"):
-    #     os.remove("test.db")
 
 @pytest_asyncio.fixture(scope="function")
 async def client():
@@ -36,3 +33,24 @@ async def client():
         yield ac
 
     app.dependency_overrides.clear()
+
+@pytest_asyncio.fixture
+async def create_user(client):
+    async def _create_user(payload: dict):
+        register_response = await client.post("/auth/register", json=payload)
+        assert register_response.status_code == 200
+        user_data = register_response.json()
+
+        login_response = await client.post("/auth/login", json=payload)
+        assert login_response.status_code == 200
+        token = login_response.json()["access_token"]
+
+        headers = {"Authorization": f"Bearer {token}"}
+
+        return {
+            "payload": payload,
+            "user_data": user_data,
+            "token": token,
+            "headers": headers
+        }
+    return _create_user
