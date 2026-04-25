@@ -103,6 +103,22 @@ async def test_delete_task_for_unauthenticated_user_401(client):
     assert error["detail"] == "Not authenticated"
 
 @pytest.mark.asyncio
+async def test_user_cannot_delete_another_users_task_401(client, create_user):
+    user_a = await create_user({"username": "gleb", "password": "gleb123"})
+    user_b = await create_user({"username": "anna", "password": "anna4321"})
+
+    task_payload = {"title": "test", "description": "description"}
+    create_task = await client.post("/tasks", json=task_payload, headers=user_a["headers"])
+    assert create_task.status_code == 201
+    task_id_user_a = create_task.json()["id"]
+
+    delete_request = await client.delete(f"/tasks/{task_id_user_a}", headers=user_b["headers"])
+    assert delete_request.status_code == 403
+    forbidden = delete_request.json()
+    assert forbidden["detail"] == "Forbidden"
+
+
+@pytest.mark.asyncio
 async def test_update_task_requires_auth_error_401(client, create_user):
     user = await create_user({"username": "gleb", "password": "gleb123"})
 
@@ -147,3 +163,40 @@ async def test_user_cannot_update_another_users_tasks_403(client, create_user):
     assert update_task_request_error.status_code == 403
     forbidden = update_task_request_error.json()
     assert forbidden["detail"] == "Forbidden"
+
+
+@pytest.mark.asyncio
+async def test_get_task_not_found_404(client, create_user):
+    user = await create_user({"username": "gleb", "password": "gleb123"})
+
+    missing_id = 5
+
+    request = await client.get(f"/tasks/{missing_id}", headers=user["headers"])
+    assert request.status_code == 404
+    request_data = request.json()
+    assert request_data["detail"] == f"Task with id {missing_id} not found"
+
+@pytest.mark.asyncio
+async def test_delete_task_not_found_404(client, create_user):
+    user = await create_user({"username": "gleb", "password": "gleb123"})
+
+    missing_id = 5
+
+    request = await client.delete(f"/tasks/{missing_id}", headers=user["headers"])
+    assert request.status_code == 404
+    request_data = request.json()
+    assert request_data["detail"] == f"Task with id {missing_id} not found"
+
+@pytest.mark.asyncio
+async def test_update_task_not_found_404(client, create_user):
+    user = await create_user({"username": "gleb", "password": "gleb123"})
+
+    missing_id = 5
+    task_update_payload = {"is_done": True}
+
+    request = await client.patch(f"/tasks/{missing_id}", json=task_update_payload, headers=user["headers"])
+    assert request.status_code == 404
+    request_data = request.json()
+    assert request_data["detail"] == f"Task with id {missing_id} not found"
+
+
