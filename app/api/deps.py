@@ -13,7 +13,6 @@ from app.services.user_service import UserNotFoundError, get_user_by_id_service
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 
-
 async def get_session() -> AsyncGenerator[AsyncSession, None]:
     async with SessionLocal() as session:
         try:
@@ -45,3 +44,7 @@ async def get_current_user(token: str = Depends(oauth2_scheme),
 
     return user
 
+async def get_current_admin(current_user: User = Depends(get_current_user)):
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Forbidden")
+    return current_user

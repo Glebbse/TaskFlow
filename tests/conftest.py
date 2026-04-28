@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, Asyn
 from app.api.deps import get_session
 from app.core.base import Base
 from app.main import app
-
+from app.models.user import User
 
 TEST_DB_URL = "sqlite+aiosqlite:///./test.db"
 
@@ -54,3 +54,19 @@ async def create_user(client):
             "headers": headers
         }
     return _create_user
+
+@pytest_asyncio.fixture
+async def make_user_admin():
+    async def _make_user_admin(user_id: int):
+        async with TestSessionLocal() as session:
+            user = await session.get(User, user_id)
+            if user is None:
+                raise ValueError(f"User with user_id {user_id} not found")
+            user.role = "admin"
+            await session.commit()
+            await session.refresh(user)
+
+            return user
+
+    return _make_user_admin
+

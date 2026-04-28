@@ -29,5 +29,3 @@ async def login(user_in: UserLogin, session: AsyncSession = Depends(get_session)
     access_token = create_access_token({"sub": str(user.id)})
 
     return Token(access_token=access_token, token_type="bearer")
-
-

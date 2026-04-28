@@ -11,9 +11,10 @@ async def test_get_me_returns_current_user(client, create_user):
 
     assert user_info["id"] == user["user_data"]["id"]
     assert user_info["username"] == user["user_data"]["username"]
+    assert user_info["role"] == "user"
 
 @pytest.mark.asyncio
-async def test_get_me_requires_auth(client, create_user):
+async def test_get_me_requires_auth(client):
     request = await client.get("/users/me")
     assert request.status_code == 401
     auth_error = request.json()
@@ -21,10 +22,84 @@ async def test_get_me_requires_auth(client, create_user):
     assert auth_error["detail"] == "Not authenticated"
 
 @pytest.mark.asyncio
-async def test_get_me_reuqires_valid_token_401(client, create_user):
+async def test_get_me_requires_valid_token_401(client):
     broken_token = "abc.def.ghi"
     headers = {"Authorization": f"Bearer {broken_token}"}
     request = await client.get("/users/me", headers=headers)
     assert request.status_code == 401
     invalid_token_error = request.json()
     assert invalid_token_error["detail"] == "Could not validate credentials"
+
+@pytest.mark.asyncio
+async def test_get_all_users_requires_auth(client):
+    request = await client.get("/users")
+    assert request.status_code == 401
+    auth_error = request.json()
+
+    assert auth_error["detail"] == "Not authenticated"
+
+@pytest.mark.asyncio
+async def test_get_all_users_requires_admin_rights(client, create_user):
+    user = await create_user({"username": "gleb", "password": "gleb321"})
+
+    request = await client.get("/users", headers=user["headers"])
+    assert request.status_code == 403
+    auth_error = request.json()
+
+    assert auth_error["detail"] == "Forbidden"
+
+
+@pytest.mark.asyncio
+async def test_get_all_users_200(client, create_user, make_user_admin):
+    admin = await create_user({"username": "gleb", "password": "gleb321"})
+    await make_user_admin(admin["user_data"]["id"])
+    request = await client.get("/users", headers=admin["headers"])
+    assert request.status_code == 200
+    response = request.json()
+    assert "items" in response
+    assert "total" in response
+    assert any(admin["user_data"]["id"] == item["id"]
+               and item["username"] == admin["user_data"]["username"] for item in response["items"])
+
+
+@pytest.mark.asyncio
+async def test_get_user_by_id_user_requires_auth(client, create_user):
+    user = await create_user({"username": "gleb", "password": "gleb321"})
+    user_id = user["user_data"]["id"]
+    request = await client.get(f"/users/{user_id}")
+    assert request.status_code == 401
+
+@pytest.mark.asyncio
+async def test_get_user_by_id_user_cannot_access_another_user_id(client, create_user):
+    user_a = await create_user({"username": "gleb", "password": "gleb321"})
+    user_a_id = user_a["user_data"]["id"]
+    user_b = await create_user({"username": "anna", "password": "anna321"})
+
+    request = await client.get(f"/users/{user_a_id}", headers=user_b["headers"])
+    assert request.status_code == 403
+    assert request.json()["detail"] == "Forbidden"
+
+@pytest.mark.asyncio
+async def test_get_user_by_id_user_not_found(client, create_user, make_user_admin):
+    admin = await create_user({"username": "gleb", "password": "gleb321"})
+    await make_user_admin(admin["user_data"]["id"])
+    fake_id = 100
+    request = await client.get(f"/users/{fake_id}", headers=admin["headers"])
+    assert request.status_code == 404
+    assert request.json()["detail"] == f"User with id {fake_id} not found"
+
+@pytest.mark.asyncio
+async def test_get_user_by_id_200(client, create_user, make_user_admin):
+    admin = await create_user({"username": "gleb", "password": "gleb321"})
+    await make_user_admin(admin["user_data"]["id"])
+    user = await create_user({"username": "anna", "password": "anna321"})
+
+    user_request = await client.get(f"/users/{user['user_data']['id']}", headers=user["headers"])
+    assert user_request.status_code == 200
+    user_request_data = user_request.json()
+    assert user["user_data"]["id"] == user_request_data["id"]
+
+    admin_request = await client.get(f"/users/{user['user_data']['id']}", headers=admin["headers"])
+    assert admin_request.status_code == 200
+    admin_request_data = admin_request.json()
+    assert user["user_data"]["id"] == admin_request_data["id"]

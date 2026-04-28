@@ -66,7 +66,7 @@ async def test_user_cannot_access_another_user_data(client):
     user1 = {"username": "gleb", "password": "gleb123"}
     user1_register_response = await client.post("/auth/register", json=user1)
     assert user1_register_response.status_code == 200
-    data_user1 = user1_register_response.json()
+    # data_user1 = user1_register_response.json()
 
     user2 = {"username": "tom", "password": "thomas123"}
     user2_register_response = await client.post("/auth/register", json=user2)

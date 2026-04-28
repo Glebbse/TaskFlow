@@ -7,12 +7,12 @@ class UserCreate(BaseModel):
     """Creating user"""
     username: str = Field(min_length=1, max_length=100)
 
-
 class UserRead(BaseModel):
     """API response of user info"""
     model_config = ConfigDict(from_attributes=True)
     id: int
     username: str
+    role: str
 
 
 class UserListResponse(BaseModel):
