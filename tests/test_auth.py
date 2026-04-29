@@ -114,5 +114,3 @@ async def test_get_user_requires_authentication(client):
 
     request = await client.get(f"/users/{user_data["id"]}")
     assert request.status_code == 401
-
-

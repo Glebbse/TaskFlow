@@ -1,5 +1,10 @@
 import pytest
 
+from datetime import timedelta
+
+from httpx import request
+
+from app.core.security import create_access_token
 
 @pytest.mark.asyncio
 async def test_get_me_returns_current_user(client, create_user):
@@ -103,3 +108,15 @@ async def test_get_user_by_id_200(client, create_user, make_user_admin):
     assert admin_request.status_code == 200
     admin_request_data = admin_request.json()
     assert user["user_data"]["id"] == admin_request_data["id"]
+
+@pytest.mark.asyncio
+async def test_get_me_with_expired_token_returns_401(client, create_user):
+    user = await create_user({"username": "gleb", "password": "gleb321"})
+    user_id = user["user_data"]["id"]
+
+    expired_token = create_access_token({"sub": str(user_id)}, expires_delta=timedelta(minutes=-1))
+    headers = {"Authorization": f"Bearer {expired_token}"}
+
+    request = await client.get("/users/me", headers=headers)
+    assert request.status_code == 401
+    assert request.json()["detail"] == "Could not validate credentials"
