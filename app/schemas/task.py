@@ -16,6 +16,7 @@ class TaskRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
+    position: int
     title: str
     description: str | None
     is_done: bool

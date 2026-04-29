@@ -12,6 +12,76 @@ async def test_create_task_for_auth_user(client, create_user):
     task_data = create_task_request.json()
 
     assert task_data["user_id"] == user["user_data"]["id"]
+    assert task_data["position"] == 1
+
+@pytest.mark.asyncio
+async def test_task_positions_are_sequential_per_user(client, create_user):
+    user_a = await create_user({"username": "gleb", "password": "gleb123"})
+    user_b = await create_user({"username": "anna", "password": "anna4321"})
+
+    first_user_a_task = await client.post(
+        "/tasks",
+        json={"title": "first", "description": "description"},
+        headers=user_a["headers"],
+    )
+    assert first_user_a_task.status_code == 201
+
+    second_user_a_task = await client.post(
+        "/tasks",
+        json={"title": "second", "description": "description"},
+        headers=user_a["headers"],
+    )
+    assert second_user_a_task.status_code == 201
+
+    first_user_b_task = await client.post(
+        "/tasks",
+        json={"title": "first", "description": "description"},
+        headers=user_b["headers"],
+    )
+    assert first_user_b_task.status_code == 201
+
+    assert first_user_a_task.json()["position"] == 1
+    assert second_user_a_task.json()["position"] == 2
+    assert first_user_b_task.json()["position"] == 1
+
+@pytest.mark.asyncio
+async def test_deleting_task_shifts_later_positions_for_same_user(client, create_user):
+    user_a = await create_user({"username": "gleb", "password": "gleb123"})
+    user_b = await create_user({"username": "anna", "password": "anna4321"})
+
+    user_a_tasks = []
+    for title in ["first", "second", "third"]:
+        response = await client.post(
+            "/tasks",
+            json={"title": title, "description": "description"},
+            headers=user_a["headers"],
+        )
+        assert response.status_code == 201
+        user_a_tasks.append(response.json())
+
+    user_b_task = await client.post(
+        "/tasks",
+        json={"title": "other user", "description": "description"},
+        headers=user_b["headers"],
+    )
+    assert user_b_task.status_code == 201
+
+    delete_response = await client.delete(f"/tasks/{user_a_tasks[1]['id']}", headers=user_a["headers"])
+    assert delete_response.status_code == 200
+    assert delete_response.json()["deleted"]["position"] == 2
+    assert delete_response.json()["deleted"]["title"] == "second"
+
+    user_a_list = await client.get("/tasks", headers=user_a["headers"])
+    assert user_a_list.status_code == 200
+    user_a_items = user_a_list.json()["items"]
+
+    user_b_list = await client.get("/tasks", headers=user_b["headers"])
+    assert user_b_list.status_code == 200
+    user_b_items = user_b_list.json()["items"]
+
+    assert [task["title"] for task in user_a_items] == ["first", "third"]
+    assert [task["position"] for task in user_a_items] == [1, 2]
+    assert [task["position"] for task in user_b_items] == [1]
 
 @pytest.mark.asyncio
 async def test_create_task_requires_auth_401(client):

@@ -1,14 +1,29 @@
 # Repo layer for tasks
 
-from sqlalchemy import select, func
+from sqlalchemy import select, func, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.task import Task
 from app.schemas.task import TaskCreate
 
 
-async def create_db_task(session: AsyncSession, user_id: int, payload: TaskCreate) -> Task:
-    task = Task(title=payload.title, description=payload.description, user_id=user_id)
+async def get_next_task_position(session: AsyncSession, user_id: int) -> int:
+    query_max = select(func.max(Task.position)).select_from(Task).where(Task.user_id == user_id)
+    result = await session.execute(query_max)
+    max_position = result.scalar_one_or_none()
+    return 1 if max_position is None else max_position + 1
+
+async def shift_task_position(session: AsyncSession, deleted_task: Task) -> None:
+    query_shift_position = (
+        update(Task)
+        .where(Task.user_id == deleted_task.user_id)
+        .where(Task.position > deleted_task.position)
+        .values(position=Task.position - 1)
+    )
+    await session.execute(query_shift_position)
+
+async def create_db_task(session: AsyncSession, user_id: int, payload: TaskCreate, position: int) -> Task:
+    task = Task(title=payload.title, description=payload.description, user_id=user_id, position=position)
     session.add(task)
     return task
 
@@ -17,8 +32,8 @@ async def get_all_db_tasks(session: AsyncSession,
                            offset: int,
                            search: str | None,
                            is_done: bool | None,
-                           sort_by: str = "id",
-                           order: str = "desc") -> tuple[list[Task], int]:
+                           sort_by: str = "position",
+                           order: str = "asc") -> tuple[list[Task], int]:
     query = select(Task)
     count_query = select(func.count()).select_from(Task)
     if search is not None:
@@ -28,6 +43,7 @@ async def get_all_db_tasks(session: AsyncSession,
     allowed_fields = {
         "id": Task.id,
         "title": Task.title,
+        "position": Task.position,
         "created_at": Task.created_at,
         "last_updated": Task.last_updated
     }
@@ -56,8 +72,8 @@ async def get_db_tasks_by_user_id(session: AsyncSession,
                                   offset: int,
                                   search: str | None,
                                   is_done: bool | None,
-                                  sort_by: str = "id",
-                                  order: str = "desc") -> tuple[list[Task], int]:
+                                  sort_by: str = "position",
+                                  order: str = "asc") -> tuple[list[Task], int]:
     query = select(Task).where(Task.user_id == user_id)
     count_query = select(func.count()).select_from(Task).where(Task.user_id == user_id)
     if search is not None:
@@ -71,6 +87,7 @@ async def get_db_tasks_by_user_id(session: AsyncSession,
     allowed_fields = {
         "id": Task.id,
         "title": Task.title,
+        "position": Task.position,
         "created_at": Task.created_at,
         "last_updated": Task.last_updated
     }

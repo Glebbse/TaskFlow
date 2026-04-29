@@ -14,9 +14,11 @@ class TaskNotFoundError(Exception):
 class TaskForbiddenError(Exception):
     pass
 
+
 async def create_task_for_user_service(session: AsyncSession, user_id: int, payload: TaskCreate) -> Task:
     await get_user_by_id_service(session, user_id)
-    task = await db_tasks.create_db_task(session, user_id, payload)
+    position = await db_tasks.get_next_task_position(session, user_id)
+    task = await db_tasks.create_db_task(session, user_id, payload, position)
     await session.commit()
     await session.refresh(task)
     return task
@@ -27,8 +29,8 @@ async def get_tasks_by_user_service(session: AsyncSession,
                                     offset: int,
                                     search: str | None,
                                     is_done: bool | None,
-                                    sort_by: str = "id",
-                                    order: str = "desc") -> dict:
+                                    sort_by: str = "position",
+                                    order: str = "asc") -> dict:
     await get_user_by_id_service(session, user_id)
     items, total = await db_tasks.get_db_tasks_by_user_id(session, user_id, limit, offset, search, is_done, sort_by, order)
     return {
@@ -41,6 +43,8 @@ async def get_tasks_by_user_service(session: AsyncSession,
 async def delete_task_service(session: AsyncSession, task_id: int, current_user_id: int) -> dict:
     task = await get_task_service(session, task_id, current_user_id)
     deleted_task =  await db_tasks.delete_db_task(session, task)
+    await session.flush()
+    await db_tasks.shift_task_position(session, task)
     await session.commit()
     return deleted_task
 
