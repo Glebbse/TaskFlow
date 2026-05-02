@@ -12,4 +12,4 @@ class User(Base):
     hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
     role: Mapped[str] = mapped_column(String(20), nullable=False, default="user", server_default="user")
 
-    tasks: Mapped[list["Task"]] = relationship(back_populates="user")
+    tasks: Mapped[list["Task"]] = relationship(back_populates="user", passive_deletes=True, cascade="all, delete-orphan")

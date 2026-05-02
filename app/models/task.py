@@ -1,6 +1,6 @@
 # DB model (SQLAlchemy)
 
-from sqlalchemy import String, Boolean, DateTime, func, ForeignKey, UniqueConstraint
+from sqlalchemy import Index, String, Boolean, DateTime, func, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from datetime import datetime
 
@@ -13,6 +13,7 @@ class Task(Base):
     __tablename__ = "tasks"
     __table_args__ = (
         UniqueConstraint("user_id", "position", name="uq_tasks_user_position"),
+        Index("ix_tasks_user_done_position", "user_id", "is_done", "position"),
     )
     id: Mapped[int] = mapped_column(primary_key=True)
     position: Mapped[int] = mapped_column(nullable=False)
@@ -28,5 +29,5 @@ class Task(Base):
         onupdate=func.now(),
         nullable=True)
 
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     user: Mapped[User] = relationship(back_populates="tasks")
