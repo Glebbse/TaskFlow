@@ -1,3 +1,6 @@
+from functools import reduce
+from operator import index
+
 import pytest
 
 
@@ -269,4 +272,170 @@ async def test_update_task_not_found_404(client, create_user):
     request_data = request.json()
     assert request_data["detail"] == f"Task with id {missing_id} not found"
 
+
+@pytest.mark.asyncio
+async def test_search_in_tasks_for_user(client, create_user):
+    user_a = await create_user({"username": "gleb", "password": "gleb123"})
+    user_b = await create_user({"username": "thomas", "password": "tom1234"})
+
+    for title in ["first", "first and second", "third"]:
+        response_user_a = await client.post(
+            "/tasks",
+            json={"title": title, "description": "description"},
+            headers=user_a["headers"])
+        assert response_user_a.status_code == 201
+
+    response_user_b = await client.post(
+        "/tasks",
+        json={"title": "learn fastapi", "description": "description"},
+        headers=user_b["headers"])
+    assert response_user_b.status_code == 201
+
+    request_user_a = await client.get("/tasks?search=first", headers=user_a["headers"])
+    assert request_user_a.status_code == 200
+    items_user_a = request_user_a.json()["items"]
+    titles = [item["title"] for item in items_user_a]
+    assert titles == ["first", "first and second"]
+    assert all(item["user_id"] == user_a["user_data"]["id"] for item in items_user_a)
+    assert request_user_a.json()["total"] == 2
+
+@pytest.mark.asyncio
+async def test_is_done_in_tasks_for_user(client, create_user):
+    user_a = await create_user({"username": "gleb", "password": "gleb123"})
+    user_b = await create_user({"username": "thomas", "password": "tom1234"})
+
+    created_user_a_tasks = []
+    for title in ["first", "first and second", "third"]:
+        response_user_a = await client.post(
+            "/tasks",
+            json={"title": title, "description": "description"},
+            headers=user_a["headers"])
+        assert response_user_a.status_code == 201
+        created_user_a_tasks.append(response_user_a.json())
+    task_id_a = created_user_a_tasks[2]["id"]
+
+    update_response_a = await client.patch(f"/tasks/{task_id_a}", json={"is_done": True}, headers=user_a["headers"])
+    assert update_response_a.status_code == 200
+    assert update_response_a.json()["is_done"] is True
+
+    response_user_b = await client.post(
+        "/tasks",
+        json={"title": "learn fastapi", "description": "description"},
+        headers=user_b["headers"])
+    assert response_user_b.status_code == 201
+    task_id_b = response_user_b.json()["id"]
+
+    update_response_b = await client.patch(f"/tasks/{task_id_b}", json={"is_done": True}, headers=user_b["headers"])
+    assert update_response_b.status_code == 200
+    assert update_response_b.json()["is_done"] is True
+
+    response_is_done_user_a = await client.get("/tasks?is_done=false", headers=user_a["headers"])
+    assert response_is_done_user_a.status_code == 200
+    items_user_a = response_is_done_user_a.json()["items"]
+    assert all(item["is_done"] is False for item in items_user_a)
+    assert all(item["user_id"] == user_a["user_data"]["id"] for item in items_user_a)
+    assert response_is_done_user_a.json()["total"] == 2
+
+@pytest.mark.asyncio
+async def test_pagination_for_user_tasks(client, create_user):
+    user_a = await create_user({"username": "gleb", "password": "gleb123"})
+    created_user_a_tasks = []
+    for title in ["first", "first and second", "third"]:
+        response_user_a = await client.post(
+            "/tasks",
+            json={"title": title, "description": "description"},
+            headers=user_a["headers"])
+        assert response_user_a.status_code == 201
+        created_user_a_tasks.append(response_user_a.json())
+
+    user_b = await create_user({"username": "thomas", "password": "tom1234"})
+    await client.post(
+        "/tasks",
+        json={"title": "other user's task", "description": "description"},
+        headers=user_b["headers"],
+    )
+
+    response = await client.get("/tasks?limit=2&offset=1", headers=user_a["headers"])
+    assert response.status_code == 200
+    items = response.json()["items"]
+    titles = [item["title"] for item in items]
+    assert titles == ["first and second", "third"]
+    assert [item["id"] for item in items] == [
+        created_user_a_tasks[1]["id"],
+        created_user_a_tasks[2]["id"],
+    ]
+    assert response.json()["limit"] == 2
+    assert response.json()["offset"] == 1
+    assert response.json()["total"] == 3
+
+@pytest.mark.asyncio
+async def test_sort_by_and_order_for_user_tasks(client, create_user):
+    user_a = await create_user({"username": "gleb", "password": "gleb123"})
+    created_user_a_tasks = []
+    for title in ["take delivery", "buy a car", "learn fastapi"]:
+        response_user_a = await client.post(
+            "/tasks",
+            json={"title": title, "description": "description"},
+            headers=user_a["headers"])
+        assert response_user_a.status_code == 201
+        created_user_a_tasks.append(response_user_a.json())
+    expected_tasks = sorted(created_user_a_tasks, key=lambda task: task["title"])
+    user_b = await create_user({"username": "thomas", "password": "tom1234"})
+    await client.post(
+        "/tasks",
+        json={"title": "other user's task", "description": "description"},
+        headers=user_b["headers"],
+    )
+
+    response = await client.get("/tasks?sort_by=title&order=asc", headers=user_a["headers"])
+    assert response.status_code == 200
+    response_data = response.json()
+    items = response_data["items"]
+    assert [item["title"] for item in items] == [task["title"] for task in expected_tasks]
+    assert [item["id"] for item in items] == [task["id"] for task in expected_tasks]
+    assert all(item["user_id"] == user_a["user_data"]["id"] for item in items)
+    assert response_data["total"] == 3
+
+
+@pytest.mark.asyncio
+async def test_get_tasks_filter_sort_with_pagination(client, create_user):
+    user_a = await create_user({"username": "gleb", "password": "gleb123"})
+    created_user_a_tasks = []
+    for title in ["make a fastapi backend", "buy a car", "learn fastapi", "debug fastapi tests"]:
+        response_user_a = await client.post(
+            "/tasks",
+            json={"title": title, "description": "description"},
+            headers=user_a["headers"])
+        assert response_user_a.status_code == 201
+        created_user_a_tasks.append(response_user_a.json())
+    done_task = next(task for task in created_user_a_tasks if task["title"] == "learn fastapi")
+
+    update_response_a = await client.patch(f"/tasks/{done_task['id']}", json={"is_done": True}, headers=user_a["headers"])
+    assert update_response_a.status_code == 200
+    assert update_response_a.json()["is_done"] is True
+
+    done_task["is_done"] = True
+    tasks = sorted(created_user_a_tasks, key=lambda task: task["title"], reverse=True)
+    expected_tasks = list(filter(lambda task: task["is_done"] is False and "fastapi" in task["title"], tasks))
+
+    user_b = await create_user({"username": "thomas", "password": "tom1234"})
+    await client.post(
+        "/tasks",
+        json={"title": "other user's fastapi task", "description": "description"},
+        headers=user_b["headers"],
+    )
+
+    response = await client.get("/tasks?search=fastapi&is_done=false&sort_by=title&order=desc&limit=2&offset=0",
+                                headers=user_a["headers"])
+
+    assert response.status_code == 200
+    response_data = response.json()
+    items = response_data["items"]
+    assert [item["title"] for item in items] == [task["title"] for task in expected_tasks]
+    assert [item["id"] for item in items] == [task["id"] for task in expected_tasks]
+    assert all(item["user_id"] == user_a["user_data"]["id"] for item in items)
+    assert all(item["is_done"] is False for item in items)
+    assert response_data["total"] == 2
+    assert response_data["offset"] == 0
+    assert response_data["limit"] == 2
 
