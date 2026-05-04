@@ -49,3 +49,12 @@ async def get_user_by_id_service(session: AsyncSession, user_id: int) -> User | 
     if user is None:
         raise UserNotFoundError(f"User with id {user_id} not found")
     return user
+
+async def delete_user_service(session: AsyncSession, user_id: int) -> dict:
+    user = await db_users.get_db_user_by_id(session, user_id)
+    if user is None:
+        raise UserNotFoundError(f"User with id {user_id} not found")
+    deleted_user = await db_users.delete_db_user(session, user)
+    await session.commit()
+    return deleted_user
+

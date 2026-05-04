@@ -7,7 +7,7 @@ from typing import Literal
 from app.api.deps import get_session, get_current_user, get_current_admin
 from app.models.user import User
 from app.schemas.task import TaskRead, TaskCreate, TaskListResponse
-from app.schemas.user import UserRead, UserCreate, UserListResponse
+from app.schemas.user import UserRead, UserCreate, UserListResponse, UserDeleted
 from app.services import user_service, task_service
 from app.services.auth_service import InvalidCredentialsError
 from app.services.task_service import create_task_for_user_service
@@ -58,3 +58,13 @@ async def get_user_by_id_handler(user_id: int, current_user: User = Depends(get_
     except UserNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
 
+@router.delete("/{user_id}", response_model=UserDeleted)
+async def delete_user_handler(user_id: int, current_user: User = Depends(get_current_user), session: AsyncSession = Depends(get_session)):
+    try:
+        if current_user.id == user_id or current_user.role == "admin":
+            return await user_service.delete_user_service(session, user_id)
+
+        raise HTTPException(status_code=403, detail="Forbidden")
+
+    except UserNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))

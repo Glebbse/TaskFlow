@@ -1,5 +1,6 @@
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
+from sqlalchemy import event
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 
 from app.api.deps import get_session
@@ -10,6 +11,13 @@ from app.models.user import User
 TEST_DB_URL = "sqlite+aiosqlite:///./test.db"
 
 test_engine = create_async_engine(TEST_DB_URL, echo=False)
+
+@event.listens_for(test_engine.sync_engine, "connect")
+def enable_sqlite_foreign_keys(dbapi_connection, connection_record):
+    cursor = dbapi_connection.cursor()
+    cursor.execute("PRAGMA foreign_keys=ON")
+    cursor.close()
+
 TestSessionLocal = async_sessionmaker(bind=test_engine, expire_on_commit=False)
 
 async def override_get_session() -> AsyncSession:

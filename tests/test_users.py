@@ -2,9 +2,13 @@ import pytest
 
 from datetime import timedelta
 
-from httpx import request
+from sqlalchemy import select
 
 from app.core.security import create_access_token
+from app.models.task import Task
+from app.models.user import User
+from tests.conftest import TestSessionLocal, make_user_admin
+
 
 @pytest.mark.asyncio
 async def test_get_me_returns_current_user(client, create_user):
@@ -120,3 +124,85 @@ async def test_get_me_with_expired_token_returns_401(client, create_user):
     request = await client.get("/users/me", headers=headers)
     assert request.status_code == 401
     assert request.json()["detail"] == "Could not validate credentials"
+
+@pytest.mark.asyncio
+async def test_user_can_delete_self(client, create_user, make_user_admin):
+    user_a = await create_user({"username": "gleb", "password": "gleb321"})
+    admin = await create_user({"username": "admin", "password": "admin321"})
+    await make_user_admin(admin["user_data"]["id"])
+
+    for title in ["1st", "2nd"]:
+        response = await client.post("/tasks",
+                                     json={"title": title, "description": "description"},
+                                     headers=user_a["headers"])
+        assert response.status_code == 201
+
+    delete_a_response = await client.delete(f"/users/{user_a['user_data']['id']}",
+                                   headers=user_a["headers"])
+    assert delete_a_response.status_code == 200
+    deleted_user_a = delete_a_response.json()["deleted"]
+    assert deleted_user_a["id"] == user_a["user_data"]["id"]
+    assert deleted_user_a["username"] == user_a["user_data"]["username"]
+
+    async with TestSessionLocal() as session:
+        res = await session.execute(select(Task).where(Task.user_id == user_a["user_data"]["id"]))
+        remaining_tasks = list(res.scalars())
+
+    assert remaining_tasks == []
+
+    check_user = await client.get(f"/users/{user_a['user_data']['id']}", headers=admin["headers"])
+    assert check_user.status_code == 404
+
+    check_user_ = await client.get(f"/users/me", headers=user_a["headers"])
+    assert check_user_.status_code == 401
+    assert check_user_.json()["detail"] == "Could not validate credentials"
+
+@pytest.mark.asyncio
+async def test_admin_delete_user(client, create_user, make_user_admin):
+    user_b = await create_user({"username": "anna", "password": "anna321"})
+    admin = await create_user({"username": "admin", "password": "admin321"})
+    await make_user_admin(admin["user_data"]["id"])
+
+    for title in ["1st", "2nd"]:
+        response = await client.post("/tasks",
+                                     json={"title": title, "description": "description"},
+                                     headers=user_b["headers"])
+        assert response.status_code == 201
+
+    delete_admin_response = await client.delete(f"/users/{user_b['user_data']['id']}",
+                                   headers=admin["headers"])
+    assert delete_admin_response.status_code == 200
+    deleted_user_b = delete_admin_response.json()["deleted"]
+    assert deleted_user_b["id"] == user_b["user_data"]["id"]
+    assert deleted_user_b["username"] == user_b["user_data"]["username"]
+
+    async with TestSessionLocal() as session:
+        res = await session.execute(select(Task).where(Task.user_id == user_b["user_data"]["id"]))
+        remaining_tasks = list(res.scalars())
+
+    assert remaining_tasks == []
+
+@pytest.mark.asyncio
+async def test_user_cannot_delete_other_user(client, create_user):
+    user_a = await create_user({"username": "gleb", "password": "gleb321"})
+    user_b = await create_user({"username": "anna", "password": "anna321"})
+
+    created_tasks = []
+    for title in ["1st", "2nd"]:
+        response = await client.post("/tasks",
+                                     json={"title": title, "description": "description"},
+                                     headers=user_a["headers"])
+        assert response.status_code == 201
+        task = response.json()
+        created_tasks.append(task)
+
+    delete_403 = await client.delete(f"/users/{user_a['user_data']['id']}",
+                                   headers=user_b["headers"])
+    assert delete_403.status_code == 403
+
+    user_a_tasks_response = await client.get("/tasks", headers=user_a["headers"])
+    assert user_a_tasks_response.status_code == 200
+    user_a_tasks = user_a_tasks_response.json()["items"]
+
+    assert [item["id"] for item in user_a_tasks] == [task["id"] for task in created_tasks]
+    assert [item["title"] for item in user_a_tasks] == ["1st", "2nd"]

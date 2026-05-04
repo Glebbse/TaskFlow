@@ -2,6 +2,8 @@
 
 from pydantic import Field, ConfigDict, BaseModel
 
+from app.schemas.task import TaskRead
+
 
 class UserCreate(BaseModel):
     """Creating user"""
@@ -31,3 +33,6 @@ class UserRegister(BaseModel):
 class UserLogin(BaseModel):
     username: str = Field(min_length=1, max_length=100)
     password: str = Field(min_length=6, max_length=72)
+
+class UserDeleted(BaseModel):
+    deleted: UserRead

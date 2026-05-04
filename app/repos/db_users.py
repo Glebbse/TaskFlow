@@ -47,6 +47,6 @@ async def get_all_db_users(session: AsyncSession,
     total = total_result.scalar_one()
     return items, total
 
-
-
-
+async def delete_db_user(session: AsyncSession, user: User) -> dict:
+    await session.delete(user)
+    return {"deleted": user}
