@@ -6,13 +6,7 @@ from app.models.task import Task
 from app.schemas.task import TaskCreate, TaskUpdate
 from app.repos import db_tasks
 from app.services.user_service import get_user_by_id_service
-
-
-class TaskNotFoundError(Exception):
-    pass
-
-class TaskForbiddenError(Exception):
-    pass
+from app.core.exceptions import TaskForbiddenError, TaskNotFoundError
 
 
 async def create_task_for_user_service(session: AsyncSession, user_id: int, payload: TaskCreate) -> Task:
@@ -51,9 +45,9 @@ async def delete_task_service(session: AsyncSession, task_id: int, current_user_
 async def get_task_service(session: AsyncSession, task_id: int, current_user_id: int) -> Task:
     task = await db_tasks.get_db_task(session, task_id)
     if task is None:
-        raise TaskNotFoundError(f"Task with id {task_id} not found")
+        raise TaskNotFoundError(task_id)
     if task.user_id != current_user_id:
-        raise TaskForbiddenError("Forbidden")
+        raise TaskForbiddenError()
     return task
 
 async def update_task_service(session: AsyncSession, task_id: int, current_user_id: int,  payload: TaskUpdate) -> Task:

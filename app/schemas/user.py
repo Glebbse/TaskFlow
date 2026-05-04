@@ -2,8 +2,6 @@
 
 from pydantic import Field, ConfigDict, BaseModel
 
-from app.schemas.task import TaskRead
-
 
 class UserCreate(BaseModel):
     """Creating user"""

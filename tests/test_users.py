@@ -6,7 +6,6 @@ from sqlalchemy import select
 
 from app.core.security import create_access_token
 from app.models.task import Task
-from app.models.user import User
 from tests.conftest import TestSessionLocal, make_user_admin
 
 
@@ -206,3 +205,14 @@ async def test_user_cannot_delete_other_user(client, create_user):
 
     assert [item["id"] for item in user_a_tasks] == [task["id"] for task in created_tasks]
     assert [item["title"] for item in user_a_tasks] == ["1st", "2nd"]
+
+@pytest.mark.asyncio
+async def test_admin_delete_missing_user_returns_404(client, create_user, make_user_admin):
+    admin = await create_user({"username": "admin", "password": "admin321"})
+    await make_user_admin(admin["user_data"]["id"])
+    missing_id = 123
+
+    delete_404 = await client.delete(f"/users/{missing_id}", headers=admin["headers"])
+    assert delete_404.status_code == 404
+    assert delete_404.json()["detail"] == f"User with id {missing_id} not found"
+

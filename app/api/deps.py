@@ -9,7 +9,8 @@ from collections.abc import AsyncGenerator
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.user import User
-from app.services.user_service import UserNotFoundError, get_user_by_id_service
+from app.services.user_service import get_user_by_id_service
+from app.core.exceptions import UserNotFoundError
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 

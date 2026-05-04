@@ -5,20 +5,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.user import User
 from app.schemas.user import UserRegister
 from app.repos import db_users
-
-
-class UserNotFoundError(Exception):
-    pass
-
-
-class UsernameAlreadyExistError(Exception):
-    pass
+from app.core.exceptions import UsernameAlreadyExistError, UserNotFoundError
 
 
 async def register_user_service(session: AsyncSession, payload: UserRegister) -> User | None:
     existing_username = await db_users.get_db_user_by_username(session, payload.username)
     if existing_username:
-        raise UsernameAlreadyExistError(f"Username {payload.username} already exists")
+        raise UsernameAlreadyExistError(payload.username)
     user = await db_users.create_db_user(session, payload.username, payload.password)
     await session.commit()
     await session.refresh(user)
@@ -41,19 +34,19 @@ async def get_all_users_service(session: AsyncSession,
 async def get_user_by_username_service(session: AsyncSession, username: str) -> User | None:
     user = await db_users.get_db_user_by_username(session, username)
     if user is None:
-        raise UserNotFoundError(f"User with username {username} not found")
+        raise UserNotFoundError.by_username(username)
     return user
 
 async def get_user_by_id_service(session: AsyncSession, user_id: int) -> User | None:
     user = await db_users.get_db_user_by_id(session, user_id)
     if user is None:
-        raise UserNotFoundError(f"User with id {user_id} not found")
+        raise UserNotFoundError.by_id(user_id)
     return user
 
 async def delete_user_service(session: AsyncSession, user_id: int) -> dict:
     user = await db_users.get_db_user_by_id(session, user_id)
     if user is None:
-        raise UserNotFoundError(f"User with id {user_id} not found")
+        raise UserNotFoundError.by_id(user_id)
     deleted_user = await db_users.delete_db_user(session, user)
     await session.commit()
     return deleted_user

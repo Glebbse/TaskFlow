@@ -439,3 +439,31 @@ async def test_get_tasks_filter_sort_with_pagination(client, create_user):
     assert response_data["offset"] == 0
     assert response_data["limit"] == 2
 
+@pytest.mark.asyncio
+async def test_get_missing_task_uses_global_handler(client, create_user):
+    user = await create_user({"username": "gleb", "password": "gleb321"})
+
+    missing_id = 999
+    response = await client.get(f"/tasks/{missing_id}", headers=user["headers"])
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == f"Task with id {missing_id} not found"
+
+@pytest.mark.asyncio
+async def test_get_other_users_task_uses_global_handler(client, create_user):
+    user_a = await create_user({"username": "gleb", "password": "gleb321"})
+    user_b = await create_user({"username": "anna", "password": "anna321"})
+
+    created = await client.post(
+        "/tasks",
+        json={"title": "private", "description": "description"},
+        headers=user_a["headers"],
+    )
+    assert created.status_code == 201
+
+    response = await client.get(f"/tasks/{created.json()['id']}", headers=user_b["headers"])
+
+    assert response.status_code == 403
+    assert response.json()["detail"] == "Forbidden"
+
+

@@ -2,14 +2,13 @@
 
 from typing import Literal
 
-from fastapi import Depends, APIRouter, HTTPException, Query
+from fastapi import Depends, APIRouter, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_session, get_current_user
 from app.models.user import User
 from app.schemas.task import TaskRead, TaskCreate, DeletedResponse, TaskUpdate, TaskListResponse
 from app.services import task_service
-from app.services.task_service import TaskNotFoundError, TaskForbiddenError
 
 router = APIRouter(prefix="/tasks", tags=["tasks"])
 
@@ -19,12 +18,7 @@ async def create_task_handler(payload: TaskCreate, current_user: User = Depends(
 
 @router.get("/{task_id}", response_model=TaskRead)
 async def get_task_handler(task_id: int, current_user: User = Depends(get_current_user), session: AsyncSession = Depends(get_session)):
-    try:
-        return await task_service.get_task_service(session, task_id, current_user.id)
-    except TaskForbiddenError as e:
-        raise HTTPException(status_code=403, detail=str(e))
-    except TaskNotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+    return await task_service.get_task_service(session, task_id, current_user.id)
 
 @router.get("", response_model=TaskListResponse)
 async def get_list_of_tasks_handler(limit: int = Query(default=10, ge=1, le=100),
@@ -39,18 +33,8 @@ async def get_list_of_tasks_handler(limit: int = Query(default=10, ge=1, le=100)
 
 @router.delete("/{task_id}", response_model=DeletedResponse)
 async def delete_task_handler(task_id:int, current_user: User = Depends(get_current_user), session: AsyncSession = Depends(get_session)):
-    try:
-        return await task_service.delete_task_service(session, task_id, current_user.id)
-    except TaskForbiddenError as e:
-        raise HTTPException(status_code=403, detail=str(e))
-    except TaskNotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+    return await task_service.delete_task_service(session, task_id, current_user.id)
 
 @router.patch("/{task_id}", response_model=TaskRead)
 async def update_task_handler(task_id: int, payload: TaskUpdate, current_user: User = Depends(get_current_user),  session: AsyncSession = Depends(get_session)):
-    try:
-        return await task_service.update_task_service(session, task_id, current_user.id, payload)
-    except TaskForbiddenError as e:
-        raise HTTPException(status_code=403, detail=str(e))
-    except TaskNotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+    return await task_service.update_task_service(session, task_id, current_user.id, payload)

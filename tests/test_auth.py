@@ -114,3 +114,15 @@ async def test_get_user_requires_authentication(client):
 
     request = await client.get(f"/users/{user_data["id"]}")
     assert request.status_code == 401
+
+@pytest.mark.asyncio
+async def test_register_duplicate_username_returns_409(client, create_user):
+    await create_user({"username": "gleb", "password": "gleb321"})
+
+    response = await client.post(
+        "/auth/register",
+        json={"username": "gleb", "password": "another321"},
+    )
+
+    assert response.status_code == 409
+    assert response.json()["detail"] == "Username gleb already exists"
