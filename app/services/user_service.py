@@ -3,19 +3,11 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.user import User
-from app.schemas.user import UserRegister
+from app.schemas.user import PasswordUpdate
 from app.repos import db_users
-from app.core.exceptions import UsernameAlreadyExistError, UserNotFoundError
+from app.core.exceptions import UserNotFoundError, InvalidCredentialsError, BadRequestError
+from app.core.security import verify_password, hash_password
 
-
-async def register_user_service(session: AsyncSession, payload: UserRegister) -> User | None:
-    existing_username = await db_users.get_db_user_by_username(session, payload.username)
-    if existing_username:
-        raise UsernameAlreadyExistError(payload.username)
-    user = await db_users.create_db_user(session, payload.username, payload.password)
-    await session.commit()
-    await session.refresh(user)
-    return user
 
 async def get_all_users_service(session: AsyncSession,
                                 limit: int,
@@ -51,3 +43,11 @@ async def delete_user_service(session: AsyncSession, user_id: int) -> dict:
     await session.commit()
     return deleted_user
 
+async def update_password_service(session: AsyncSession, user: User, payload: PasswordUpdate):
+    if not verify_password(payload.current_password, user.hashed_password):
+        raise InvalidCredentialsError("Invalid current password")
+    if payload.current_password == payload.new_password:
+        raise BadRequestError("New password must be different from current password")
+    user.hashed_password = hash_password(payload.new_password)
+    await session.commit()
+    return {"detail": "Password updated"}

@@ -216,3 +216,63 @@ async def test_admin_delete_missing_user_returns_404(client, create_user, make_u
     assert delete_404.status_code == 404
     assert delete_404.json()["detail"] == f"User with id {missing_id} not found"
 
+@pytest.mark.asyncio
+async def test_user_update_psw_200(client, create_user):
+    user_a = await create_user({"username": "gleb", "password": "gleb321"})
+
+    payload = {"current_password": "gleb321", "new_password": "GLEB9191"}
+    update_response = await client.patch("/users/me/password", json=payload, headers=user_a["headers"])
+    assert update_response.status_code == 200
+    updated_data = update_response.json()
+    assert updated_data["detail"] == "Password updated"
+
+    login_response_new_psw = await client.post("/auth/login", json={"username": "gleb", "password": "GLEB9191"})
+    assert login_response_new_psw.status_code == 200
+    assert "access_token" in login_response_new_psw.json()
+
+    login_response_old_psw = await client.post("/auth/login", json={"username": "gleb", "password": "gleb321"})
+    assert login_response_old_psw.status_code == 401
+    assert login_response_old_psw.json()["detail"] == "Invalid username or password"
+
+
+@pytest.mark.asyncio
+async def test_user_update_psw_wrong_psw_401(client, create_user):
+    user_a = await create_user({"username": "gleb", "password": "gleb321"})
+
+    payload = {"current_password": "gleb311", "new_password": "GLEB9191"}
+    update_response = await client.patch("/users/me/password", json=payload, headers=user_a["headers"])
+    assert update_response.status_code == 401
+    updated_data = update_response.json()
+    assert updated_data["detail"] == "Invalid current password"
+
+@pytest.mark.asyncio
+async def test_user_update_psw_requires_authentication(client, create_user):
+    user_a = await create_user({"username": "gleb", "password": "gleb321"})
+
+    payload = {"current_password": "gleb311", "new_password": "GLEB9191"}
+    update_response = await client.patch("/users/me/password", json=payload)
+    assert update_response.status_code == 401
+    updated_data = update_response.json()
+    assert updated_data["detail"] == "Not authenticated"
+
+@pytest.mark.asyncio
+async def test_user_update_password_same_password_400(client, create_user):
+    user_a = await create_user({"username": "gleb", "password": "gleb321"})
+
+    payload = {"current_password": "gleb321", "new_password": "gleb321"}
+    update_response = await client.patch("/users/me/password", json=payload, headers=user_a["headers"])
+    assert update_response.status_code == 400
+    updated_data = update_response.json()
+    assert updated_data["detail"] == "New password must be different from current password"
+
+@pytest.mark.asyncio
+async def test_user_update_password_validation_error_422(client, create_user):
+    user = await create_user({"username": "gleb", "password": "gleb321"})
+
+    response = await client.patch(
+        "/users/me/password",
+        json={"current_password": "gleb321", "new_password": "123"},
+        headers=user["headers"],
+    )
+
+    assert response.status_code == 422

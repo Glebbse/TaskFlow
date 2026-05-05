@@ -1,8 +1,13 @@
+from typing import TYPE_CHECKING
+
 from sqlalchemy import String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-# from app.models.task import Task
 from app.core.base import Base
+
+if TYPE_CHECKING:
+    from app.models.task import Task
+    from app.models.refresh_token import RefreshToken
 
 
 class User(Base):
@@ -13,3 +18,4 @@ class User(Base):
     role: Mapped[str] = mapped_column(String(20), nullable=False, default="user", server_default="user")
 
     tasks: Mapped[list["Task"]] = relationship(back_populates="user", passive_deletes=True, cascade="all, delete-orphan")
+    refresh_tokens: Mapped[list["RefreshToken"]] = relationship(back_populates="user", passive_deletes=True, cascade="all, delete-orphan")

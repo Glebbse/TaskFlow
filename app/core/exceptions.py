@@ -47,6 +47,10 @@ class InvalidCredentialsError(AppError):
     default_msg = "Invalid username or password"
 
 
+class BadRequestError(AppError):
+    status_code = 400
+
+
 def register_exception_handlers(app: FastAPI):
     @app.exception_handler(AppError)
     async def app_error_handler(request: Request, exc: AppError):

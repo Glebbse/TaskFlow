@@ -6,7 +6,7 @@ from typing import Literal
 
 from app.api.deps import get_session, get_current_user, get_current_admin
 from app.models.user import User
-from app.schemas.user import UserRead, UserListResponse, UserDeleted
+from app.schemas.user import UserRead, UserListResponse, UserDeleted, PasswordUpdate, MessageResponse
 from app.services import user_service
 
 
@@ -39,3 +39,7 @@ async def delete_user_handler(user_id: int, current_user: User = Depends(get_cur
         return await user_service.delete_user_service(session, user_id)
 
     raise HTTPException(status_code=403, detail="Forbidden")
+
+@router.patch("/me/password", response_model=MessageResponse)
+async def update_password_handler(payload: PasswordUpdate, current_user: User = Depends(get_current_user), session: AsyncSession = Depends(get_session)):
+    return await user_service.update_password_service(session, current_user, payload)

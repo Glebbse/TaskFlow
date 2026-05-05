@@ -1,4 +1,5 @@
 # DB model (SQLAlchemy)
+from typing import TYPE_CHECKING
 
 from sqlalchemy import Index, String, Boolean, DateTime, func, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -6,7 +7,9 @@ from datetime import datetime
 
 
 from app.core.base import Base
-from app.models.user import User
+
+if TYPE_CHECKING:
+    from app.models.user import User
 
 
 class Task(Base):
@@ -30,4 +33,4 @@ class Task(Base):
         nullable=True)
 
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
-    user: Mapped[User] = relationship(back_populates="tasks")
+    user: Mapped["User"] = relationship(back_populates="tasks")
