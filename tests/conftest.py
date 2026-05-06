@@ -51,14 +51,16 @@ async def create_user(client):
 
         login_response = await client.post("/auth/login", json=payload)
         assert login_response.status_code == 200
-        token = login_response.json()["access_token"]
+        access_token = login_response.json()["access_token"]
+        refresh_token = login_response.json()["refresh_token"]
 
-        headers = {"Authorization": f"Bearer {token}"}
+        headers = {"Authorization": f"Bearer {access_token}"}
 
         return {
             "payload": payload,
             "user_data": user_data,
-            "token": token,
+            "access_token": access_token,
+            "refresh_token": refresh_token,
             "headers": headers
         }
     return _create_user

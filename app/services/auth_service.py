@@ -1,11 +1,19 @@
+from datetime import datetime, timezone
+
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.security import hash_password, verify_password
+from app.core.security import hash_password, verify_password, create_access_token, create_refresh_token, \
+    hash_refresh_token, get_refresh_token_expires_at
 from app.models.user import User
-from app.repos import db_users
+from app.repos import db_users, db_refresh_tokens
+from app.schemas.auth import Token, RefreshTokenRequest, AccessToken
 from app.schemas.user import UserRegister, UserLogin
 from app.core.exceptions import InvalidCredentialsError, UsernameAlreadyExistError
 
+def ensure_utc(dt: datetime) -> datetime:
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc)
 
 async def register_user(session: AsyncSession, payload: UserRegister) -> User:
     existing_user = await db_users.get_db_user_by_username(session, payload.username)
@@ -26,3 +34,42 @@ async def authenticate_user(session: AsyncSession, payload: UserLogin) -> User:
     if not verify_password(payload.password, user.hashed_password):
         raise InvalidCredentialsError()
     return user
+
+async def login_user(session: AsyncSession, payload: UserLogin) -> Token:
+    user = await authenticate_user(session, payload)
+    access_token = create_access_token({"sub": str(user.id)})
+    refresh_token = create_refresh_token()
+    refresh_token_hash = hash_refresh_token(refresh_token)
+    expires_at = get_refresh_token_expires_at()
+
+    await db_refresh_tokens.create_db_refresh_token(session, user.id, refresh_token_hash, expires_at)
+    await session.commit()
+    return Token(access_token=access_token, refresh_token=refresh_token, token_type="bearer")
+
+async def refresh_access_token_service(session: AsyncSession, payload: RefreshTokenRequest) -> AccessToken:
+    token_hash = hash_refresh_token(payload.refresh_token)
+    token_in_db = await db_refresh_tokens.get_db_refresh_token_by_hash(session, token_hash)
+
+    if token_in_db is None:
+        raise InvalidCredentialsError("Invalid refresh token")
+
+    if ensure_utc(token_in_db.expires_at) <= datetime.now(timezone.utc):
+        raise InvalidCredentialsError("Invalid refresh token")
+
+    if token_in_db.revoked_at is not None:
+        raise InvalidCredentialsError("Invalid refresh token")
+
+    access_token = create_access_token({"sub": str(token_in_db.user_id)})
+
+    return AccessToken(access_token=access_token, token_type="bearer")
+
+async def logout_service(session: AsyncSession, payload: RefreshTokenRequest):
+    token_hash = hash_refresh_token(payload.refresh_token)
+    token_in_db = await db_refresh_tokens.get_db_refresh_token_by_hash(session, token_hash)
+
+    if token_in_db is not None and token_in_db.revoked_at is None:
+        token_in_db.revoked_at = datetime.now(timezone.utc)
+        await session.commit()
+
+    return {"detail": "Logged out"}
+
