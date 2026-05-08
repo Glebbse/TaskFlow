@@ -1,11 +1,9 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.util import await_only
 
 from app.api.deps import get_session, get_current_user
-from app.core.security import create_access_token
 from app.models.user import User
-from app.schemas.auth import Token, AccessToken, RefreshTokenRequest
+from app.schemas.auth import Token, RefreshTokenRequest
 from app.schemas.user import UserRegister, UserRead, UserLogin, MessageResponse
 from app.services import auth_service
 
@@ -25,8 +23,8 @@ async def refresh_access_token(payload: RefreshTokenRequest, session: AsyncSessi
 
 @router.post("/logout", response_model=MessageResponse)
 async def logout(payload: RefreshTokenRequest, session: AsyncSession = Depends(get_session)):
-    return await auth_service.logout_service(session, payload)
+    return await auth_service.logout(session, payload)
 
 @router.post("/logout-all", response_model=MessageResponse)
 async def logout_all(current_user: User = Depends(get_current_user), session: AsyncSession = Depends(get_session)):
-    return await auth_service.logout_all_service(session, current_user)
+    return await auth_service.logout_all(session, current_user)

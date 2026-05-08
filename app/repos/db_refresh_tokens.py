@@ -21,7 +21,7 @@ async def get_db_refresh_token_by_hash(session: AsyncSession, token_hash: str) -
     refresh_token = await session.execute(select(RefreshToken).where(RefreshToken.token_hash == token_hash))
     return refresh_token.scalar_one_or_none()
 
-async def revoke_all_refresh_tokens_for_user_helper(session: AsyncSession, user_id: int, revoked_at: datetime) -> None:
+async def revoke_all_refresh_tokens_for_user(session: AsyncSession, user_id: int, revoked_at: datetime) -> None:
     await session.execute(
         update(RefreshToken)
         .where(RefreshToken.user_id == user_id)
