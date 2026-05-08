@@ -46,24 +46,34 @@ async def login_user(session: AsyncSession, payload: UserLogin) -> Token:
     await session.commit()
     return Token(access_token=access_token, refresh_token=refresh_token, token_type="bearer")
 
-async def refresh_access_token_service(session: AsyncSession, payload: RefreshTokenRequest) -> AccessToken:
+async def refresh_access_token_service(session: AsyncSession, payload: RefreshTokenRequest) -> Token:
     token_hash = hash_refresh_token(payload.refresh_token)
     token_in_db = await db_refresh_tokens.get_db_refresh_token_by_hash(session, token_hash)
 
     if token_in_db is None:
         raise InvalidCredentialsError("Invalid refresh token")
 
+    if token_in_db.revoked_at is not None:
+        await db_refresh_tokens.revoke_all_refresh_tokens_for_user_helper(session, token_in_db.user_id, datetime.now(timezone.utc))
+        await session.commit()
+        raise InvalidCredentialsError("Invalid refresh token")
+
     if ensure_utc(token_in_db.expires_at) <= datetime.now(timezone.utc):
         raise InvalidCredentialsError("Invalid refresh token")
 
-    if token_in_db.revoked_at is not None:
-        raise InvalidCredentialsError("Invalid refresh token")
+    token_in_db.revoked_at = datetime.now(timezone.utc)
+    new_refresh_token = create_refresh_token()
+    new_refresh_token_hash = hash_refresh_token(new_refresh_token)
+
+    await db_refresh_tokens.create_db_refresh_token(session, token_in_db.user_id, new_refresh_token_hash, token_in_db.expires_at)
 
     access_token = create_access_token({"sub": str(token_in_db.user_id)})
 
-    return AccessToken(access_token=access_token, token_type="bearer")
+    await session.commit()
 
-async def logout_service(session: AsyncSession, payload: RefreshTokenRequest):
+    return Token(access_token=access_token, refresh_token=new_refresh_token, token_type="bearer")
+
+async def logout_service(session: AsyncSession, payload: RefreshTokenRequest) -> dict:
     token_hash = hash_refresh_token(payload.refresh_token)
     token_in_db = await db_refresh_tokens.get_db_refresh_token_by_hash(session, token_hash)
 
@@ -73,3 +83,8 @@ async def logout_service(session: AsyncSession, payload: RefreshTokenRequest):
 
     return {"detail": "Logged out"}
 
+async def logout_all_service(session: AsyncSession, user: User) -> dict:
+    await db_refresh_tokens.revoke_all_refresh_tokens_for_user_helper(session, user.id, datetime.now(timezone.utc))
+    await session.commit()
+
+    return {"detail": "Logged out from all devices"}
