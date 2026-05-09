@@ -8,14 +8,17 @@ from app.core.base import Base
 if TYPE_CHECKING:
     from app.models.task import Task
     from app.models.refresh_token import RefreshToken
+    from app.models.auth_accounts import AuthAccount
 
 
 class User(Base):
     __tablename__ = "users"
     id: Mapped[int] = mapped_column(primary_key=True)
     username: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)
+    email: Mapped[str | None] = mapped_column(String(255), unique=True, nullable=True)
     hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
     role: Mapped[str] = mapped_column(String(20), nullable=False, default="user", server_default="user")
 
     tasks: Mapped[list["Task"]] = relationship(back_populates="user", passive_deletes=True, cascade="all, delete-orphan")
     refresh_tokens: Mapped[list["RefreshToken"]] = relationship(back_populates="user", passive_deletes=True, cascade="all, delete-orphan")
+    auth_accounts: Mapped[list["AuthAccount"]] = relationship(back_populates="user", cascade="all, delete-orphan", passive_deletes=True)

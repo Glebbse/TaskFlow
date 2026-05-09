@@ -6,6 +6,9 @@ from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, Asyn
 from app.api.deps import get_session
 from app.core.base import Base
 from app.main import app
+from app.models.auth_accounts import AuthAccount
+from app.models.refresh_token import RefreshToken
+from app.models.task import Task
 from app.models.user import User
 
 TEST_DB_URL = "sqlite+aiosqlite:///./test.db"

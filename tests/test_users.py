@@ -5,6 +5,7 @@ from datetime import timedelta
 from sqlalchemy import select
 
 from app.core.security import create_access_token
+from app.models.auth_accounts import AuthAccount
 from app.models.task import Task
 from tests.conftest import TestSessionLocal, make_user_admin
 
@@ -20,6 +21,8 @@ async def test_get_me_returns_current_user(client, create_user):
     assert user_info["id"] == user["user_data"]["id"]
     assert user_info["username"] == user["user_data"]["username"]
     assert user_info["role"] == "user"
+    assert user_info["email"] is None
+
 
 @pytest.mark.asyncio
 async def test_get_me_requires_auth(client):
@@ -180,6 +183,33 @@ async def test_admin_delete_user(client, create_user, make_user_admin):
         remaining_tasks = list(res.scalars())
 
     assert remaining_tasks == []
+
+
+@pytest.mark.asyncio
+async def test_deleting_user_deletes_linked_auth_accounts(client, create_user):
+    user = await create_user({"username": "gleb", "password": "gleb321"})
+    user_id = user["user_data"]["id"]
+
+    async with TestSessionLocal() as session:
+        auth_account = AuthAccount(
+            provider="google",
+            provider_user_id="google-sub-123",
+            email="gleb@example.com",
+            user_id=user_id,
+        )
+        session.add(auth_account)
+        await session.commit()
+
+    delete_response = await client.delete(f"/users/{user_id}", headers=user["headers"])
+    assert delete_response.status_code == 200
+
+    async with TestSessionLocal() as session:
+        result = await session.execute(
+            select(AuthAccount).where(AuthAccount.user_id == user_id)
+        )
+        remaining_auth_accounts = list(result.scalars())
+
+    assert remaining_auth_accounts == []
 
 @pytest.mark.asyncio
 async def test_user_cannot_delete_other_user(client, create_user):

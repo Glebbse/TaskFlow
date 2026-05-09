@@ -18,6 +18,8 @@ async def test_register_user(client):
     assert "id" in data
     assert "password" not in data
     assert "hashed_password" not in data
+    assert data["email"] is None
+
 
 @pytest.mark.asyncio
 async def test_register_duplicate_username_returns_409(client):
