@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>TaskFlow</title>
+    <link rel="stylesheet" href="/ui/styles.css">
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="brand">
+          <div class="brand-mark">TF</div>
+          <div>
+            <h1>TaskFlow</h1>
+            <p id="sessionLabel">Signed out</p>
+          </div>
+        </div>
+
+        <nav class="nav" aria-label="Primary">
+          <button class="nav-item active" type="button" data-view="tasksView">Tasks</button>
+          <button class="nav-item" type="button" data-view="accountView">Account</button>
+        </nav>
+
+        <div class="sidebar-actions">
+          <button class="button secondary" type="button" id="logoutAllButton">Logout all</button>
+          <button class="button danger" type="button" id="logoutButton">Logout</button>
+        </div>
+      </aside>
+
+      <main class="main">
+        <section class="auth-panel" id="authPanel">
+          <div class="auth-card">
+            <div class="auth-tabs" role="tablist">
+              <button class="auth-tab active" type="button" data-auth-mode="login">Login</button>
+              <button class="auth-tab" type="button" data-auth-mode="register">Register</button>
+            </div>
+
+            <form id="authForm" class="form">
+              <label>
+                Username
+                <input id="authUsername" name="username" type="text" autocomplete="username" required>
+              </label>
+              <label>
+                Password
+                <input id="authPassword" name="password" type="password" autocomplete="current-password" required minlength="6">
+              </label>
+              <button class="button primary" type="submit" id="authSubmit">Login</button>
+            </form>
+          </div>
+        </section>
+
+        <section class="workspace hidden" id="workspace">
+          <div class="topbar">
+            <div>
+              <h2 id="viewTitle">Tasks</h2>
+              <p id="viewSubtitle">0 tasks</p>
+            </div>
+            <div class="status" id="statusMessage" role="status"></div>
+          </div>
+
+          <section class="view" id="tasksView">
+            <form class="task-create" id="taskCreateForm">
+              <input id="taskTitle" type="text" placeholder="Task title" maxlength="255" required>
+              <input id="taskDescription" type="text" placeholder="Description">
+              <button class="button primary" type="submit">Add</button>
+            </form>
+
+            <div class="toolbar">
+              <input id="searchInput" type="search" placeholder="Search">
+              <select id="doneFilter">
+                <option value="">All</option>
+                <option value="false">Open</option>
+                <option value="true">Done</option>
+              </select>
+              <select id="sortBy">
+                <option value="position">Position</option>
+                <option value="title">Title</option>
+                <option value="created_at">Created</option>
+                <option value="last_updated">Updated</option>
+              </select>
+              <select id="sortOrder">
+                <option value="asc">Asc</option>
+                <option value="desc">Desc</option>
+              </select>
+              <button class="icon-button" type="button" id="refreshTasksButton" title="Refresh tasks">R</button>
+            </div>
+
+            <div class="task-list" id="taskList"></div>
+
+            <div class="pager">
+              <button class="button secondary" type="button" id="prevPage">Prev</button>
+              <span id="pageInfo">Page 1</span>
+              <button class="button secondary" type="button" id="nextPage">Next</button>
+            </div>
+          </section>
+
+          <section class="view hidden" id="accountView">
+            <div class="account-grid">
+              <section class="panel">
+                <h3>Profile</h3>
+                <dl class="profile-data">
+                  <div><dt>ID</dt><dd id="profileId">-</dd></div>
+                  <div><dt>Username</dt><dd id="profileUsername">-</dd></div>
+                  <div><dt>Role</dt><dd id="profileRole">-</dd></div>
+                </dl>
+              </section>
+
+              <section class="panel">
+                <h3>Password</h3>
+                <form class="form compact" id="passwordForm">
+                  <label>
+                    Current password
+                    <input id="currentPassword" type="password" required minlength="6">
+                  </label>
+                  <label>
+                    New password
+                    <input id="newPassword" type="password" required minlength="6">
+                  </label>
+                  <button class="button primary" type="submit">Update</button>
+                </form>
+              </section>
+            </div>
+          </section>
+        </section>
+      </main>
+    </div>
+
+    <script src="/ui/app.js"></script>
+  </body>
+</html>

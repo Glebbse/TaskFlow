@@ -126,7 +126,8 @@ async def test_login_stores_hashed_refresh_token(client, create_user):
 
     login_response = await client.post("/auth/login", json=payload)
     assert login_response.status_code == 200
-    refresh_token = login_response.json()["refresh_token"]
+    refresh_token = login_response.cookies.get("taskflow_refresh_token")
+    assert refresh_token is not None
 
     async with TestSessionLocal() as session:
         result = await session.execute(select(RefreshToken))

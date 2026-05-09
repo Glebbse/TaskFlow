@@ -52,7 +52,8 @@ async def create_user(client):
         login_response = await client.post("/auth/login", json=payload)
         assert login_response.status_code == 200
         access_token = login_response.json()["access_token"]
-        refresh_token = login_response.json()["refresh_token"]
+        refresh_token = login_response.cookies.get("taskflow_refresh_token")
+        assert refresh_token is not None
 
         headers = {"Authorization": f"Bearer {access_token}"}
 
