@@ -139,3 +139,27 @@ async def test_login_stores_hashed_refresh_token(client, create_user):
     assert register_response.json()["id"] == refresh_token_in_db.user_id
     assert refresh_token != refresh_token_in_db.token_hash
 
+@pytest.mark.asyncio
+async def test_register_user_with_email(client):
+    payload = {"username": "gleb", "password": "gleb321", "email": "gleb@test.com"}
+    register_response = await client.post("/auth/register", json=payload)
+    assert register_response.status_code == 200
+
+    assert register_response.json()["email"] == "gleb@test.com"
+
+@pytest.mark.asyncio
+async def test_register_user_email_already_exists(client):
+    payload = {"username": "gleb", "password": "gleb321", "email": "gleb@test.com"}
+    first_response = await client.post("/auth/register", json=payload)
+    assert first_response.status_code == 200
+
+    payload_ = {"username": "gleb_test", "password": "test321", "email": "gleb@test.com"}
+    second_response = await client.post("/auth/register", json=payload_)
+    assert second_response.status_code == 409
+    assert second_response.json()["detail"] == "Email gleb@test.com already exists"
+
+@pytest.mark.asyncio
+async def test_register_user_invalid_email(client):
+    payload = {"username": "gleb", "password": "gleb321", "email": "gleb.test.com"}
+    first_response = await client.post("/auth/register", json=payload)
+    assert first_response.status_code == 422

@@ -50,6 +50,12 @@ class InvalidCredentialsError(AppError):
 class BadRequestError(AppError):
     status_code = 400
 
+class EmailAlreadyExistError(AppError):
+    status_code = 409
+
+    def __init__(self, email: str):
+        super().__init__(f"Email {email} already exists")
+
 
 def register_exception_handlers(app: FastAPI):
     @app.exception_handler(AppError)

@@ -9,7 +9,8 @@ from app.models.user import User
 from app.repos import db_users, db_refresh_tokens
 from app.schemas.auth import Token
 from app.schemas.user import UserRegister, UserLogin
-from app.core.exceptions import InvalidCredentialsError, UsernameAlreadyExistError
+from app.core.exceptions import InvalidCredentialsError, UsernameAlreadyExistError, EmailAlreadyExistError
+
 
 def _ensure_utc_(dt: datetime) -> datetime:
     if dt.tzinfo is None:
@@ -25,8 +26,13 @@ async def register_user(session: AsyncSession, payload: UserRegister) -> User:
     if existing_user:
         raise UsernameAlreadyExistError(payload.username)
 
+    if payload.email is not None:
+        existing_email = await db_users.get_db_user_by_email(session, str(payload.email))
+        if existing_email:
+            raise EmailAlreadyExistError(str(payload.email))
+
     hashed_password = hash_password(payload.password)
-    user = await db_users.create_db_user(session, payload.username, hashed_password)
+    user = await db_users.create_db_user(session, payload.username, hashed_password, str(payload.email) if payload.email is not None else None)
     await session.commit()
     await session.refresh(user)
     return user

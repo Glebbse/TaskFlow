@@ -5,8 +5,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.user import User
 
 
-async def create_db_user(session: AsyncSession, username: str, hashed_password: str) -> User:
-    user = User(username=username, hashed_password=hashed_password)
+async def create_db_user(session: AsyncSession, username: str, hashed_password: str, email: str | None = None) -> User:
+    user = User(username=username, hashed_password=hashed_password, email=email)
     session.add(user)
     await session.flush()
     return user
@@ -50,3 +50,7 @@ async def get_all_db_users(session: AsyncSession,
 async def delete_db_user(session: AsyncSession, user: User) -> dict:
     await session.delete(user)
     return {"deleted": user}
+
+async def get_db_user_by_email(session: AsyncSession, email: str) -> User | None:
+    query = await session.execute(select(User).where(User.email == email))
+    return query.scalar_one_or_none()

@@ -1,6 +1,6 @@
 # Pydantic models for API
 
-from pydantic import Field, ConfigDict, BaseModel
+from pydantic import Field, ConfigDict, BaseModel, EmailStr
 
 
 class UserCreate(BaseModel):
@@ -27,6 +27,7 @@ class UserListResponse(BaseModel):
 
 class UserRegister(BaseModel):
     username: str = Field(min_length=1, max_length=100)
+    email: EmailStr | None = None
     password: str = Field(min_length=6, max_length=72)
 
 
