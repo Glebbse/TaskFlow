@@ -1,5 +1,9 @@
+import secrets
+from urllib.parse import urlencode
+
 from fastapi import APIRouter, Cookie, Depends, Response
 from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi.responses import RedirectResponse
 
 from app.api.deps import get_session, get_current_user
 from app.core.exceptions import InvalidCredentialsError
@@ -7,11 +11,13 @@ from app.models.user import User
 from app.schemas.auth import Token
 from app.schemas.user import UserRegister, UserRead, UserLogin, MessageResponse
 from app.services import auth_service
+from app.services.oauth_google import get_google_identity_from_code, build_google_authorization_url
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 REFRESH_COOKIE_NAME = "taskflow_refresh_token"
 REFRESH_COOKIE_MAX_AGE = 60 * 60 * 24 * 30
-
+GOOGLE_STATE_COOKIE_NAME = "taskflow_google_oauth_state"
+GOOGLE_STATE_COOKIE_MAX_AGE = 60 * 10
 
 def set_refresh_cookie(response: Response, refresh_token: str) -> None:
     response.set_cookie(
@@ -67,3 +73,52 @@ async def logout_all(response: Response,
     result = await auth_service.logout_all(session, current_user)
     clear_refresh_cookie(response)
     return result
+
+@router.get("/google/callback")
+async def google_callback(
+        code: str,
+        state: str,
+        oauth_state: str | None = Cookie(default=None, alias=GOOGLE_STATE_COOKIE_NAME),
+        session: AsyncSession = Depends(get_session)):
+
+    if oauth_state is None or oauth_state != state:
+        raise InvalidCredentialsError("Invalid OAuth state")
+
+    identity = await get_google_identity_from_code(code)
+    tokens, refresh_token = await auth_service.login_with_verified_provider_identity(
+        session=session,
+        provider="google",
+        provider_user_id=identity.provider_user_id,
+        email=identity.email,
+        email_verified=identity.email_verified
+    )
+
+    fragment = urlencode({
+        "access_token": tokens.access_token,
+        "token_type": tokens.token_type,
+    })
+    redirect_response = RedirectResponse(f"/ui/#{fragment}")
+    set_refresh_cookie(redirect_response, refresh_token)
+
+    redirect_response.delete_cookie(
+        key=GOOGLE_STATE_COOKIE_NAME,
+        path="/auth",
+        samesite="lax",
+    )
+
+    return redirect_response
+
+@router.get("/google/login")
+async def google_login():
+    state = secrets.token_urlsafe(32)
+    auth_url = build_google_authorization_url(state)
+    response = RedirectResponse(auth_url)
+    response.set_cookie(
+        key=GOOGLE_STATE_COOKIE_NAME,
+        value=state,
+        max_age=GOOGLE_STATE_COOKIE_MAX_AGE,
+        httponly=True,
+        samesite="lax",
+        path="/auth",
+    )
+    return response

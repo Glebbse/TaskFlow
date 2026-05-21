@@ -12,13 +12,17 @@ const els = {
   authPanel: document.getElementById("authPanel"),
   workspace: document.getElementById("workspace"),
   sessionLabel: document.getElementById("sessionLabel"),
+  authStatus: document.getElementById("authStatus"),
   statusMessage: document.getElementById("statusMessage"),
   viewTitle: document.getElementById("viewTitle"),
   viewSubtitle: document.getElementById("viewSubtitle"),
   authForm: document.getElementById("authForm"),
   authUsername: document.getElementById("authUsername"),
+  authEmailField: document.getElementById("authEmailField"),
+  authEmail: document.getElementById("authEmail"),
   authPassword: document.getElementById("authPassword"),
   authSubmit: document.getElementById("authSubmit"),
+  googleLoginButton: document.getElementById("googleLoginButton"),
   taskCreateForm: document.getElementById("taskCreateForm"),
   taskTitle: document.getElementById("taskTitle"),
   taskDescription: document.getElementById("taskDescription"),
@@ -38,12 +42,26 @@ const els = {
   newPassword: document.getElementById("newPassword"),
   profileId: document.getElementById("profileId"),
   profileUsername: document.getElementById("profileUsername"),
+  profileEmail: document.getElementById("profileEmail"),
   profileRole: document.getElementById("profileRole"),
 };
 
 function saveTokens(tokens) {
   state.accessToken = tokens.access_token || "";
   localStorage.setItem("taskflow.accessToken", state.accessToken);
+}
+
+function consumeOAuthRedirect() {
+  const hash = window.location.hash.startsWith("#") ? window.location.hash.slice(1) : "";
+  if (!hash) return false;
+
+  const params = new URLSearchParams(hash);
+  const accessToken = params.get("access_token");
+  if (!accessToken) return false;
+
+  saveTokens({ access_token: accessToken });
+  history.replaceState(null, "", window.location.pathname);
+  return true;
 }
 
 function clearSession() {
@@ -55,9 +73,18 @@ function clearSession() {
   renderSession();
 }
 
+function renderAuthMode() {
+  const isRegister = state.authMode === "register";
+  els.authEmailField.classList.toggle("hidden", !isRegister);
+  els.authEmail.required = isRegister;
+  els.authPassword.autocomplete = isRegister ? "new-password" : "current-password";
+  els.authSubmit.textContent = isRegister ? "Register" : "Login";
+}
+
 function setStatus(message, type = "") {
-  els.statusMessage.textContent = message;
-  els.statusMessage.className = `status ${type}`.trim();
+  const target = state.user ? els.statusMessage : els.authStatus;
+  target.textContent = message;
+  target.className = `${state.user ? "status" : "auth-status"} ${type}`.trim();
 }
 
 function errorDetail(data) {
@@ -149,9 +176,17 @@ function renderSession() {
   const signedIn = Boolean(state.user);
   els.authPanel.classList.toggle("hidden", signedIn);
   els.workspace.classList.toggle("hidden", !signedIn);
+  if (signedIn) {
+    els.authStatus.textContent = "";
+    els.authStatus.className = "auth-status";
+  } else {
+    els.statusMessage.textContent = "";
+    els.statusMessage.className = "status";
+  }
   els.sessionLabel.textContent = signedIn ? `${state.user.username} (${state.user.role})` : "Signed out";
   els.profileId.textContent = signedIn ? state.user.id : "-";
   els.profileUsername.textContent = signedIn ? state.user.username : "-";
+  els.profileEmail.textContent = signedIn ? (state.user.email || "-") : "-";
   els.profileRole.textContent = signedIn ? state.user.role : "-";
   renderTasks();
 }
@@ -204,6 +239,11 @@ async function handleAuthSubmit(event) {
 
   try {
     if (state.authMode === "register") {
+      const email = els.authEmail.value.trim();
+      if (email) {
+        payload.email = email;
+      }
+
       await request("/auth/register", {
         method: "POST",
         body: JSON.stringify(payload),
@@ -309,13 +349,17 @@ async function logoutAll() {
   }
 }
 
+function startGoogleLogin() {
+  window.location.href = "/auth/google/login";
+}
+
 function bindEvents() {
   document.querySelectorAll("[data-auth-mode]").forEach((button) => {
     button.addEventListener("click", () => {
       state.authMode = button.dataset.authMode;
       document.querySelectorAll("[data-auth-mode]").forEach((tab) => tab.classList.remove("active"));
       button.classList.add("active");
-      els.authSubmit.textContent = state.authMode === "login" ? "Login" : "Register";
+      renderAuthMode();
     });
   });
 
@@ -330,6 +374,7 @@ function bindEvents() {
   });
 
   els.authForm.addEventListener("submit", handleAuthSubmit);
+  els.googleLoginButton.addEventListener("click", startGoogleLogin);
   els.taskCreateForm.addEventListener("submit", handleCreateTask);
   els.taskList.addEventListener("click", handleTaskListClick);
   els.passwordForm.addEventListener("submit", handlePasswordUpdate);
@@ -370,7 +415,12 @@ function debounce(fn, wait) {
 
 async function boot() {
   bindEvents();
+  renderAuthMode();
   renderSession();
+  const receivedOAuthToken = consumeOAuthRedirect();
+  if (receivedOAuthToken) {
+    setStatus("Signed in with Google", "ok");
+  }
   if (!state.accessToken) {
     await refreshAccessToken();
   }

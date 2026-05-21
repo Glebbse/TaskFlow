@@ -41,12 +41,19 @@
                 Username
                 <input id="authUsername" name="username" type="text" autocomplete="username" required>
               </label>
+              <label class="hidden" id="authEmailField">
+                Email
+                <input id="authEmail" name="email" type="email" autocomplete="email">
+              </label>
               <label>
                 Password
                 <input id="authPassword" name="password" type="password" autocomplete="current-password" required minlength="6">
               </label>
               <button class="button primary" type="submit" id="authSubmit">Login</button>
             </form>
+            <div class="auth-divider"><span>or</span></div>
+            <button class="button google" type="button" id="googleLoginButton">Continue with Google</button>
+            <div class="auth-status" id="authStatus" role="status"></div>
           </div>
         </section>
 
@@ -102,6 +109,7 @@
                 <dl class="profile-data">
                   <div><dt>ID</dt><dd id="profileId">-</dd></div>
                   <div><dt>Username</dt><dd id="profileUsername">-</dd></div>
+                  <div><dt>Email</dt><dd id="profileEmail">-</dd></div>
                   <div><dt>Role</dt><dd id="profileRole">-</dd></div>
                 </dl>
               </section>

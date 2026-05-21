@@ -50,11 +50,17 @@ class InvalidCredentialsError(AppError):
 class BadRequestError(AppError):
     status_code = 400
 
+
 class EmailAlreadyExistError(AppError):
     status_code = 409
 
     def __init__(self, email: str):
         super().__init__(f"Email {email} already exists")
+
+
+class OAuthProviderError(AppError):
+    status_code = 401
+    default_msg = "OAuth provider authentication failed"
 
 
 def register_exception_handlers(app: FastAPI):

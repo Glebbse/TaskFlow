@@ -140,6 +140,20 @@ select {
   margin-bottom: 20px;
 }
 
+.auth-status {
+  min-height: 24px;
+  margin-top: 14px;
+  color: var(--muted);
+}
+
+.auth-status.error {
+  color: var(--danger);
+}
+
+.auth-status.ok {
+  color: var(--ok);
+}
+
 .auth-tab {
   min-height: 40px;
   border: 1px solid var(--line);
@@ -152,6 +166,23 @@ select {
   background: var(--primary);
   border-color: var(--primary);
   color: #fff;
+}
+
+.auth-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 18px 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.auth-divider::before,
+.auth-divider::after {
+  content: "";
+  height: 1px;
+  flex: 1;
+  background: var(--line);
 }
 
 .workspace {
@@ -255,6 +286,17 @@ select:focus {
 .button.danger {
   background: var(--danger-bg);
   color: var(--danger);
+}
+
+.button.google {
+  width: 100%;
+  background: #ffffff;
+  border-color: var(--line);
+  color: var(--text);
+}
+
+.button.google:hover {
+  background: #f8fafc;
 }
 
 .icon-button {

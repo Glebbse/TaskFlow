@@ -31,6 +31,9 @@ class Settings:
     SECRET_KEY: str
     ACCESS_TOKEN_EXPIRE_MINUTES: int
     ALGORITHM: str
+    GOOGLE_CLIENT_ID: str
+    GOOGLE_CLIENT_SECRET: str
+    GOOGLE_REDIRECT_URI: str
 
     def __init__(self):
         self.POSTGRES_USER = _require("POSTGRES_USER")
@@ -41,6 +44,9 @@ class Settings:
         self.SECRET_KEY = _require("SECRET_KEY")
         self.ACCESS_TOKEN_EXPIRE_MINUTES = _get_int_env("ACCESS_TOKEN_EXPIRE_MINUTES", "30")
         self.ALGORITHM = _get_env("ALGORITHM", "HS256")
+        self.GOOGLE_CLIENT_ID = _get_env("GOOGLE_CLIENT_ID", "fake-google-client-id")
+        self.GOOGLE_REDIRECT_URI = _get_env("GOOGLE_REDIRECT_URI", "http://localhost:8000/auth/google/callback")
+        self.GOOGLE_CLIENT_SECRET = _get_env("GOOGLE_CLIENT_SECRET","fake-google-client-secret")
 
     @property
     def db_url(self) -> str:
