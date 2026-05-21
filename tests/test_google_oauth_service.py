@@ -2,7 +2,6 @@ import pytest
 
 from app.core.config import settings
 from app.core.exceptions import OAuthProviderError
-from app.schemas.oauth import ProviderIdentity
 from app.services.oauth_google import (
     exchange_google_code_for_tokens,
     verify_google_id_token,
@@ -62,23 +61,6 @@ class FakeGoogleAsyncClient:
             "grant_type": "authorization_code",
         }
         return FakeGoogleTokenHttpResponse()
-
-
-async def fake_verified_google_identity(code: str) -> ProviderIdentity:
-    return ProviderIdentity(
-        provider_user_id="google_sub_123",
-        email="gleb@test.com",
-        email_verified=True,
-    )
-async def fake_unverified_google_identity(code: str) -> ProviderIdentity:
-    return ProviderIdentity(
-        provider_user_id="google_sub_unverified",
-        email="gleb@test.com",
-        email_verified=False,
-    )
-
-async def fake_invalid_google_code(code: str):
-    raise OAuthProviderError("Invalid Google authorization code")
 
 
 @pytest.mark.asyncio

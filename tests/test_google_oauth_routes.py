@@ -3,7 +3,7 @@ from urllib.parse import parse_qs, urlparse
 import pytest
 
 from app.core.config import settings
-from tests.test_google_oauth_service import fake_invalid_google_code, fake_unverified_google_identity, \
+from tests.oauth_fakes import fake_invalid_google_code, fake_unverified_google_identity, \
     fake_verified_google_identity
 
 
